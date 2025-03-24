@@ -9,7 +9,7 @@ main {
 }
 
 .hero-section {
-  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/public/images/hero-bg.jpg');
+  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1547750651-3dff1f3149f4?q=80&w=1776&auto=format&fit=crop');
   background-size: cover;
   background-position: center;
   color: white;
