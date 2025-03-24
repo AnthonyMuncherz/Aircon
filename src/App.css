@@ -1,0 +1,74 @@
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+.hero-section {
+  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/public/images/hero-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  color: white;
+  padding: 100px 0;
+  text-align: center;
+}
+
+.service-card {
+  transition: transform 0.3s ease;
+  height: 100%;
+}
+
+.service-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.pricing-card {
+  border-radius: 10px;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+.pricing-card:hover {
+  transform: scale(1.02);
+}
+
+.pricing-card.featured {
+  border: 2px solid var(--primary-color);
+}
+
+.testimonial-card {
+  border-radius: 10px;
+  background-color: var(--light-color);
+}
+
+.footer {
+  background-color: var(--dark-color);
+  color: white;
+  padding: 40px 0;
+}
+
+.social-icons a {
+  margin-right: 15px;
+  color: white;
+  font-size: 1.5rem;
+}
+
+.dashboard-card {
+  border-left: 5px solid var(--primary-color);
+}
+
+.form-container {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 60px 0;
+  }
+} 
