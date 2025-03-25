@@ -53,7 +53,11 @@ const AppContent = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/services" element={<ServicesPage />} />
-          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/pricing" element={
+            <DashboardProvider>
+              <PricingPage />
+            </DashboardProvider>
+          } />
           <Route path="/contact" element={<ContactPage />} />
           
           {/* Auth routes with redirects for authenticated users */}

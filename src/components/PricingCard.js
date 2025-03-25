@@ -16,10 +16,8 @@ const PricingCard = ({ title, price, features, isFeatured, planId }) => {
     }
 
     try {
-      const result = await subscribe({
-        planId: planId || (title === 'Basic' ? 1 : title === 'Premium' ? 2 : 3),
-        amount: parseFloat(price)
-      });
+      const planIdToUse = planId || (title === 'Basic' ? 1 : title === 'Premium' ? 2 : 3);
+      const result = await subscribe(planIdToUse);
 
       if (result.success) {
         navigate('/dashboard');
