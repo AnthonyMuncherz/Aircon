@@ -62,7 +62,7 @@ const ContactPage = () => {
               <h2 className="fw-bold mb-4">Get In Touch</h2>
               <p className="text-muted mb-5">
                 Have questions about our subscription services or need to schedule a maintenance? 
-                Our customer service team is here to help you with all your air conditioning needs.
+                Our customer service team is here to help you with all your air conditioning needs throughout Malaysia.
               </p>
               
               <div className="mb-4 d-flex align-items-start">
@@ -71,7 +71,7 @@ const ContactPage = () => {
                 </div>
                 <div>
                   <h5 className="mb-1">Phone</h5>
-                  <p className="text-muted">(123) 456-7890</p>
+                  <p className="text-muted">+60 3-2345 6789</p>
                 </div>
               </div>
               
@@ -81,7 +81,7 @@ const ContactPage = () => {
                 </div>
                 <div>
                   <h5 className="mb-1">Email</h5>
-                  <p className="text-muted">info@coolairservices.com</p>
+                  <p className="text-muted">info@coolcareservices.com.my</p>
                 </div>
               </div>
               
@@ -92,8 +92,8 @@ const ContactPage = () => {
                 <div>
                   <h5 className="mb-1">Address</h5>
                   <p className="text-muted">
-                    123 Cooling Street<br />
-                    Air City, AC 12345
+                    123 Jalan Sejuk<br />
+                    Taman Nyaman, 50450 Kuala Lumpur
                   </p>
                 </div>
               </div>
@@ -121,7 +121,7 @@ const ContactPage = () => {
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
-                            placeholder="John Doe"
+                            placeholder="Ahmad Bin Abdullah"
                           />
                           <Form.Control.Feedback type="invalid">
                             Please provide your name.
@@ -138,7 +138,7 @@ const ContactPage = () => {
                             name="email"
                             value={formData.email}
                             onChange={handleChange}
-                            placeholder="john@example.com"
+                            placeholder="ahmad@example.com"
                           />
                           <Form.Control.Feedback type="invalid">
                             Please provide a valid email.
@@ -156,7 +156,7 @@ const ContactPage = () => {
                             name="phone"
                             value={formData.phone}
                             onChange={handleChange}
-                            placeholder="(123) 456-7890"
+                            placeholder="+60 12-345 6789"
                           />
                         </Form.Group>
                       </Col>

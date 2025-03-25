@@ -13,10 +13,10 @@ const Footer = () => {
           <Col md={4} className="mb-4 mb-md-0">
             <h5 className="d-flex align-items-center mb-3">
               <FaAirFreshener className="me-2" />
-              <span>CoolAir</span>
+              <span>CoolCare</span>
             </h5>
             <p className="text-muted">
-              We provide professional air conditioning maintenance services with subscription plans that ensure your cooling systems run efficiently all year round.
+              We provide professional air conditioning maintenance services with subscription plans that ensure your cooling systems run efficiently all year round in Malaysia's tropical climate.
             </p>
             <div className="social-icons">
               <a href="https://facebook.com" target="_blank" rel="noopener noreferrer"><FaFacebookF /></a>
@@ -48,17 +48,17 @@ const Footer = () => {
           <Col md={3}>
             <h5 className="mb-3">Contact</h5>
             <ul className="list-unstyled">
-              <li className="mb-2">123 Cooling Street</li>
-              <li className="mb-2">Air City, AC 12345</li>
-              <li className="mb-2">Phone: (123) 456-7890</li>
-              <li className="mb-2">Email: info@coolairservices.com</li>
+              <li className="mb-2">123 Jalan Sejuk</li>
+              <li className="mb-2">Taman Nyaman, 50450 Kuala Lumpur</li>
+              <li className="mb-2">Phone: +60 3-2345 6789</li>
+              <li className="mb-2">Email: info@coolcareservices.com.my</li>
             </ul>
           </Col>
         </Row>
         <hr className="my-0 bg-light" />
         <Row>
           <Col className="text-center py-3">
-            <p className="mb-0">&copy; {currentYear} CoolAir Services. All rights reserved.</p>
+            <p className="mb-0">&copy; {currentYear} CoolCare Services. All rights reserved.</p>
           </Col>
         </Row>
       </Container>

@@ -7,7 +7,7 @@ const PricingPage = () => {
   const pricingPlans = [
     {
       title: 'Basic',
-      price: '29.99',
+      price: '99',
       features: [
         'Bi-annual AC maintenance',
         'Filter replacements',
@@ -19,7 +19,7 @@ const PricingPage = () => {
     },
     {
       title: 'Premium',
-      price: '49.99',
+      price: '179',
       features: [
         'Quarterly AC maintenance',
         'Filter replacements',
@@ -32,7 +32,7 @@ const PricingPage = () => {
     },
     {
       title: 'Business',
-      price: '99.99',
+      price: '349',
       features: [
         'Monthly AC maintenance',
         'All filter and part replacements',
@@ -60,7 +60,7 @@ const PricingPage = () => {
           <Row className="mb-5">
             <Col className="text-center">
               <h2 className="fw-bold">Our Subscription Plans</h2>
-              <p className="text-muted">Affordable plans for every need</p>
+              <p className="text-muted">Affordable plans for every need in Malaysia</p>
             </Col>
           </Row>
           <Row className="justify-content-center">

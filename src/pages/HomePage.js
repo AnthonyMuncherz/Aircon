@@ -10,19 +10,19 @@ const HomePage = () => {
   const services = [
     {
       title: 'Regular Maintenance',
-      description: 'Scheduled maintenance to keep your AC running efficiently and prevent breakdowns.',
+      description: 'Scheduled maintenance to keep your AC running efficiently in Malaysia\'s tropical climate and prevent breakdowns.',
       icon: <FaTools className="text-primary" size={40} />,
       link: '/services'
     },
     {
       title: 'Emergency Repairs',
-      description: 'Quick response to any AC emergencies with our 24/7 service team.',
+      description: 'Quick response to any AC emergencies with our 24/7 service team available throughout Klang Valley.',
       icon: <FaClock className="text-primary" size={40} />,
       link: '/services'
     },
     {
       title: 'Premium Protection',
-      description: 'Extended warranty and protection plans for your air conditioning system.',
+      description: 'Extended warranty and protection plans for your air conditioning system to handle Malaysia\'s high humidity.',
       icon: <FaShieldAlt className="text-primary" size={40} />,
       link: '/services'
     }
@@ -30,28 +30,33 @@ const HomePage = () => {
 
   const testimonials = [
     {
-      name: 'John Smith',
+      name: 'Ahmad Razali',
       position: 'Homeowner',
-      content: 'The subscription service from CoolAir has been a lifesaver. My AC runs perfectly year-round with zero hassle.',
+      content: 'The subscription service from CoolCare has been a lifesaver during the hot Malaysian summers. My AC runs perfectly year-round with zero hassle.',
       rating: 5
     },
     {
-      name: 'Sarah Johnson',
+      name: 'Sarah Lim',
       position: 'Business Owner',
-      content: 'We maintain optimal temperature in our office building thanks to the regular maintenance from CoolAir. Highly recommended!',
+      content: 'We maintain optimal temperature in our office building in KL thanks to the regular maintenance from CoolCare. Highly recommended!',
       rating: 5
     },
     {
-      name: 'Michael Taylor',
+      name: 'Michael Tan',
       position: 'Property Manager',
-      content: "Managing multiple properties is easier with CoolAir's subscription service. They keep track of maintenance schedules so I don't have to.",
+      content: "Managing multiple properties in Penang is easier with CoolCare's subscription service. They keep track of maintenance schedules so I don't have to.",
       rating: 4
     }
   ];
 
   return (
     <>
-      <HeroSection />
+      <HeroSection 
+        title="Professional Air Conditioning Maintenance"
+        subtitle="Keep your AC running efficiently in Malaysia's tropical climate with our subscription plans"
+        buttonText="View Plans"
+        buttonLink="/pricing"
+      />
       
       {/* Services Section */}
       <section className="py-5">
@@ -85,7 +90,7 @@ const HomePage = () => {
           <Row className="mb-5">
             <Col className="text-center">
               <h2 className="fw-bold">Why Choose Our Subscription Service</h2>
-              <p className="text-muted">We make air conditioning maintenance hassle-free</p>
+              <p className="text-muted">We make air conditioning maintenance hassle-free in Malaysia</p>
             </Col>
           </Row>
           <Row className="g-4">
@@ -95,7 +100,7 @@ const HomePage = () => {
                   <FaSnowflake className="text-primary" size={40} />
                 </div>
                 <h5>Efficiency</h5>
-                <p className="text-muted">Regularly maintained ACs use up to 15% less energy</p>
+                <p className="text-muted">Regularly maintained ACs use up to 15% less energy, saving you money on electricity</p>
               </div>
             </Col>
             <Col md={3} sm={6}>
@@ -104,7 +109,7 @@ const HomePage = () => {
                   <FaTools className="text-primary" size={40} />
                 </div>
                 <h5>Expertise</h5>
-                <p className="text-muted">Certified technicians with years of experience</p>
+                <p className="text-muted">Certified technicians with years of experience in Malaysian climate conditions</p>
               </div>
             </Col>
             <Col md={3} sm={6}>
@@ -113,7 +118,7 @@ const HomePage = () => {
                   <FaShieldAlt className="text-primary" size={40} />
                 </div>
                 <h5>Protection</h5>
-                <p className="text-muted">Prevent costly repairs and system failures</p>
+                <p className="text-muted">Prevent costly repairs and system failures due to Malaysia's high humidity</p>
               </div>
             </Col>
             <Col md={3} sm={6}>
