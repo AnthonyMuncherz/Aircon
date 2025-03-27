@@ -4,7 +4,7 @@ import { FaCalendarAlt, FaWrench, FaCreditCard, FaHome, FaBell, FaUserCog, FaPlu
 import { useAuth } from '../context/AuthContext';
 import { useDashboard } from '../context/DashboardContext';
 
-const DashboardPage = () => {
+const DashboardPage = ({ defaultTab = 'overview' }) => {
   const { user, updateProfile } = useAuth();
   const { 
     properties, 
@@ -16,18 +16,26 @@ const DashboardPage = () => {
     addProperty,
     fetchAppointments,
     scheduleAppointment,
+    rescheduleAppointment,
+    cancelAppointment,
     fetchSubscription,
-    subscribe
+    subscribe,
+    cancelSubscription,
+    hasActiveSubscription
   } = useDashboard();
 
   // State variables for dashboard functionality
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [addPropertyModal, setAddPropertyModal] = useState(false);
   const [scheduleModal, setScheduleModal] = useState(false);
   const [updateProfileModal, setUpdateProfileModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
+  const [rescheduleModal, setRescheduleModal] = useState(false);
+  const [cancelConfirmModal, setCancelConfirmModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
 
   // Property form state
   const [propertyForm, setPropertyForm] = useState({
@@ -100,7 +108,31 @@ const DashboardPage = () => {
     setActionSuccess('');
 
     try {
-      const result = await addProperty(propertyForm);
+      // Basic validation for required fields
+      const requiredFields = ['address', 'city', 'state', 'zipCode'];
+      const missingFields = requiredFields.filter(field => !propertyForm[field]?.trim());
+      
+      if (missingFields.length > 0) {
+        setActionError(`Please provide: ${missingFields.join(', ')}`);
+        setActionLoading(false);
+        return;
+      }
+      
+      // Use explicitly trimmed values and ensure proper conversion
+      const propertyData = {
+        name: (propertyForm.name || 'My Property').trim(),
+        address: propertyForm.address.trim(),
+        city: propertyForm.city.trim(),
+        state: propertyForm.state.trim(),
+        zipCode: propertyForm.zipCode.trim(),
+        propertyType: propertyForm.propertyType || 'residential',
+        acUnits: parseInt(propertyForm.acUnits) || 1
+      };
+      
+      // Log the complete property data before submission
+      console.log('Submitting property data:', propertyData);
+      
+      const result = await addProperty(propertyData);
       
       if (result.success) {
         setActionSuccess('Property added successfully!');
@@ -121,6 +153,7 @@ const DashboardPage = () => {
         setActionError(result.message || 'Failed to add property');
       }
     } catch (error) {
+      console.error('Error submitting property:', error);
       setActionError('An error occurred. Please try again.');
     } finally {
       setActionLoading(false);
@@ -135,7 +168,28 @@ const DashboardPage = () => {
     setActionSuccess('');
 
     try {
-      const result = await scheduleAppointment(appointmentForm);
+      // Basic validation for required fields
+      const requiredFields = ['propertyId', 'date', 'timeSlot', 'serviceType'];
+      const missingFields = requiredFields.filter(field => !appointmentForm[field]);
+      
+      if (missingFields.length > 0) {
+        setActionError(`Please provide: ${missingFields.join(', ')}`);
+        setActionLoading(false);
+        return;
+      }
+      
+      // Format the appointment data for submission
+      const appointmentData = {
+        propertyId: appointmentForm.propertyId,
+        date: appointmentForm.date,
+        timeSlot: appointmentForm.timeSlot,
+        serviceType: appointmentForm.serviceType
+      };
+      
+      // Log the complete appointment data before submission
+      console.log('Submitting appointment data to service:', appointmentData);
+      
+      const result = await scheduleAppointment(appointmentData);
       
       if (result.success) {
         setActionSuccess('Appointment scheduled successfully!');
@@ -153,6 +207,7 @@ const DashboardPage = () => {
         setActionError(result.message || 'Failed to schedule appointment');
       }
     } catch (error) {
+      console.error('Error scheduling appointment:', error);
       setActionError('An error occurred. Please try again.');
     } finally {
       setActionLoading(false);
@@ -185,200 +240,466 @@ const DashboardPage = () => {
     }
   };
 
+  // Handle reschedule appointment
+  const handleReschedule = async (e) => {
+    e.preventDefault();
+    setActionLoading(true);
+    setActionError('');
+    setActionSuccess('');
+
+    try {
+      if (!selectedAppointment) {
+        setActionError('No appointment selected');
+        setActionLoading(false);
+        return;
+      }
+      
+      const result = await rescheduleAppointment(selectedAppointment.id, {
+        date: appointmentForm.date,
+        timeSlot: appointmentForm.timeSlot
+      });
+      
+      if (result.success) {
+        setActionSuccess('Appointment rescheduled successfully!');
+        setTimeout(() => {
+          setRescheduleModal(false);
+          setActionSuccess('');
+          setSelectedAppointment(null);
+          setAppointmentForm({
+            propertyId: '',
+            date: '',
+            timeSlot: '',
+            serviceType: 'maintenance'
+          });
+        }, 2000);
+      } else {
+        setActionError(result.message || 'Failed to reschedule appointment');
+      }
+    } catch (error) {
+      console.error('Error rescheduling appointment:', error);
+      setActionError('An error occurred. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle cancel appointment
+  const handleCancel = async () => {
+    setActionLoading(true);
+    setActionError('');
+    setActionSuccess('');
+
+    try {
+      if (!selectedAppointment) {
+        setActionError('No appointment selected');
+        setActionLoading(false);
+        return;
+      }
+      
+      const result = await cancelAppointment(selectedAppointment.id);
+      
+      if (result.success) {
+        setActionSuccess('Appointment cancelled successfully!');
+        setTimeout(() => {
+          setCancelConfirmModal(false);
+          setActionSuccess('');
+          setSelectedAppointment(null);
+        }, 2000);
+      } else {
+        setActionError(result.message || 'Failed to cancel appointment');
+      }
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      setActionError('An error occurred. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle cancel subscription
+  const handleCancelSubscription = async () => {
+    setActionLoading(true);
+    setActionError('');
+    setActionSuccess('');
+
+    try {
+      if (!subscription) {
+        setActionError('No active subscription found');
+        setActionLoading(false);
+        return;
+      }
+      
+      const result = await cancelSubscription(subscription.id);
+      
+      if (result.success) {
+        setActionSuccess('Subscription cancelled successfully!');
+        setTimeout(() => {
+          setCancelSubscriptionModal(false);
+          setActionSuccess('');
+        }, 2000);
+      } else {
+        setActionError(result.message || 'Failed to cancel subscription');
+      }
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      setActionError('An error occurred. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Add Property Modal
-  const AddPropertyModal = () => (
-    <Modal show={addPropertyModal} onHide={() => setAddPropertyModal(false)} centered>
-      <Modal.Header closeButton>
-        <Modal.Title>Add New Property</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        {actionError && <Alert variant="danger">{actionError}</Alert>}
-        {actionSuccess && <Alert variant="success">{actionSuccess}</Alert>}
+  const AddPropertyModal = () => {
+    // Local state for the form to prevent rerendering issues
+    const [localPropertyForm, setLocalPropertyForm] = useState({...propertyForm});
+    // State to track validation errors
+    const [validationErrors, setValidationErrors] = useState({});
+    
+    // Local form change handler that doesn't affect parent state until submission
+    const handleLocalFormChange = (e) => {
+      const { name, value } = e.target;
+      setLocalPropertyForm(prev => ({ ...prev, [name]: value }));
+      
+      // Clear validation error for this field when user types
+      if (validationErrors[name]) {
+        setValidationErrors(prev => ({...prev, [name]: ''}));
+      }
+    };
+    
+    // Validate form fields
+    const validateForm = () => {
+      const errors = {};
+      const requiredFields = ['address', 'city', 'state', 'zipCode'];
+      
+      requiredFields.forEach(field => {
+        if (!localPropertyForm[field]?.trim()) {
+          errors[field] = `${field.charAt(0).toUpperCase() + field.slice(1).replace('zipCode', 'Zip Code')} is required`;
+        }
+      });
+      
+      setValidationErrors(errors);
+      return Object.keys(errors).length === 0;
+    };
+    
+    // Submit handler that passes the local state to the parent handler
+    const handleLocalSubmit = (e) => {
+      e.preventDefault();
+      
+      // Validate the form first
+      if (!validateForm()) {
+        setActionError('Please fill in all required fields');
+        return;
+      }
+      
+      // Validate and ensure all fields are present with trimmed values
+      const updatedFormData = {
+        name: (localPropertyForm.name || 'My Property').trim(),
+        address: localPropertyForm.address.trim(),
+        city: localPropertyForm.city.trim(),
+        state: localPropertyForm.state.trim(),
+        zipCode: localPropertyForm.zipCode.trim(),
+        propertyType: localPropertyForm.propertyType || 'residential',
+        acUnits: parseInt(localPropertyForm.acUnits) || 1
+      };
+      
+      // Log the local form data for debugging
+      console.log('Local form data before passing to parent:', updatedFormData);
+      
+      // Update the parent state with complete form data
+      setPropertyForm(updatedFormData);
+      
+      // Call the original handler with the event
+      handleAddProperty(e);
+    };
+    
+    return (
+      <Modal show={addPropertyModal} onHide={() => setAddPropertyModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Add New Property</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {actionError && <Alert variant="danger">{actionError}</Alert>}
+          {actionSuccess && <Alert variant="success">{actionSuccess}</Alert>}
 
-        <Form onSubmit={handleAddProperty}>
-          <Form.Group className="mb-3">
-            <Form.Label>Property Name</Form.Label>
-            <Form.Control 
-              type="text" 
-              name="name" 
-              value={propertyForm.name} 
-              onChange={handlePropertyFormChange}
-              required
-              placeholder="e.g., Home, Office, Rental"
-            />
-          </Form.Group>
+          <Form onSubmit={handleLocalSubmit} noValidate>
+            <Form.Group className="mb-3">
+              <Form.Label>Property Name</Form.Label>
+              <Form.Control 
+                type="text" 
+                name="name" 
+                value={localPropertyForm.name} 
+                onChange={handleLocalFormChange}
+                placeholder="e.g., Home, Office, Rental"
+              />
+            </Form.Group>
 
-          <Form.Group className="mb-3">
-            <Form.Label>Address</Form.Label>
-            <Form.Control 
-              type="text" 
-              name="address" 
-              value={propertyForm.address} 
-              onChange={handlePropertyFormChange}
-              required
-              placeholder="Street address"
-            />
-          </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Address <span className="text-danger">*</span></Form.Label>
+              <Form.Control 
+                type="text" 
+                name="address" 
+                value={localPropertyForm.address} 
+                onChange={handleLocalFormChange}
+                required
+                placeholder="Street address"
+                isInvalid={!!validationErrors.address}
+              />
+              <Form.Control.Feedback type="invalid">
+                {validationErrors.address}
+              </Form.Control.Feedback>
+            </Form.Group>
 
-          <Row>
-            <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>City</Form.Label>
-                <Form.Control 
-                  type="text" 
-                  name="city" 
-                  value={propertyForm.city} 
-                  onChange={handlePropertyFormChange}
-                  required
-                  placeholder="City"
-                />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>State/Province</Form.Label>
-                <Form.Control 
-                  type="text" 
-                  name="state" 
-                  value={propertyForm.state} 
-                  onChange={handlePropertyFormChange}
-                  required
-                  placeholder="State"
-                />
-              </Form.Group>
-            </Col>
-          </Row>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>City <span className="text-danger">*</span></Form.Label>
+                  <Form.Control 
+                    type="text" 
+                    name="city" 
+                    value={localPropertyForm.city} 
+                    onChange={handleLocalFormChange}
+                    required
+                    placeholder="City"
+                    isInvalid={!!validationErrors.city}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {validationErrors.city}
+                  </Form.Control.Feedback>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>State/Province <span className="text-danger">*</span></Form.Label>
+                  <Form.Control 
+                    type="text" 
+                    name="state" 
+                    value={localPropertyForm.state} 
+                    onChange={handleLocalFormChange}
+                    required
+                    placeholder="State"
+                    isInvalid={!!validationErrors.state}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {validationErrors.state}
+                  </Form.Control.Feedback>
+                </Form.Group>
+              </Col>
+            </Row>
 
-          <Row>
-            <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>Postal Code</Form.Label>
-                <Form.Control 
-                  type="text" 
-                  name="zipCode" 
-                  value={propertyForm.zipCode} 
-                  onChange={handlePropertyFormChange}
-                  required
-                  placeholder="Postal code"
-                />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>Number of AC Units</Form.Label>
-                <Form.Control 
-                  type="number" 
-                  name="acUnits" 
-                  value={propertyForm.acUnits} 
-                  onChange={handlePropertyFormChange}
-                  required
-                  min="1"
-                />
-              </Form.Group>
-            </Col>
-          </Row>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Postal Code <span className="text-danger">*</span></Form.Label>
+                  <Form.Control 
+                    type="text" 
+                    name="zipCode" 
+                    value={localPropertyForm.zipCode} 
+                    onChange={handleLocalFormChange}
+                    required
+                    placeholder="Postal code"
+                    isInvalid={!!validationErrors.zipCode}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {validationErrors.zipCode}
+                  </Form.Control.Feedback>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Number of AC Units</Form.Label>
+                  <Form.Control 
+                    type="number" 
+                    name="acUnits" 
+                    value={localPropertyForm.acUnits} 
+                    onChange={handleLocalFormChange}
+                    required
+                    min="1"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            
+            <Form.Group className="mb-3">
+              <Form.Label>Property Type</Form.Label>
+              <Form.Select 
+                name="propertyType" 
+                value={localPropertyForm.propertyType} 
+                onChange={handleLocalFormChange}
+              >
+                <option value="residential">Residential</option>
+                <option value="commercial">Commercial</option>
+              </Form.Select>
+            </Form.Group>
 
-          <Form.Group className="mb-3">
-            <Form.Label>Property Type</Form.Label>
-            <Form.Select 
-              name="propertyType" 
-              value={propertyForm.propertyType} 
-              onChange={handlePropertyFormChange}
-            >
-              <option value="residential">Residential</option>
-              <option value="commercial">Commercial</option>
-            </Form.Select>
-          </Form.Group>
+            <div className="mt-3 mb-2">
+              <small className="text-muted">Fields marked with <span className="text-danger">*</span> are required</small>
+            </div>
 
-          <div className="d-grid gap-2">
-            <Button type="submit" variant="primary" disabled={actionLoading}>
-              {actionLoading ? <Spinner size="sm" animation="border" /> : 'Add Property'}
-            </Button>
-          </div>
-        </Form>
-      </Modal.Body>
-    </Modal>
-  );
+            <div className="d-grid gap-2">
+              <Button type="submit" variant="primary" disabled={actionLoading}>
+                {actionLoading ? <Spinner size="sm" animation="border" /> : 'Add Property'}
+              </Button>
+            </div>
+          </Form>
+        </Modal.Body>
+      </Modal>
+    );
+  };
 
   // Schedule Appointment Modal
-  const ScheduleAppointmentModal = () => (
-    <Modal show={scheduleModal} onHide={() => setScheduleModal(false)} centered>
-      <Modal.Header closeButton>
-        <Modal.Title>Schedule Service Appointment</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        {actionError && <Alert variant="danger">{actionError}</Alert>}
-        {actionSuccess && <Alert variant="success">{actionSuccess}</Alert>}
+  const ScheduleAppointmentModal = () => {
+    // Local state for form validation
+    const [localValidationErrors, setLocalValidationErrors] = useState({});
+    
+    const validateAppointmentForm = () => {
+      const errors = {};
+      
+      if (!appointmentForm.propertyId) {
+        errors.propertyId = 'Please select a property';
+      }
+      
+      if (!appointmentForm.date) {
+        errors.date = 'Please select a date';
+      }
+      
+      if (!appointmentForm.timeSlot) {
+        errors.timeSlot = 'Please select a time slot';
+      }
+      
+      if (!appointmentForm.serviceType) {
+        errors.serviceType = 'Please select a service type';
+      }
+      
+      setLocalValidationErrors(errors);
+      return Object.keys(errors).length === 0;
+    };
+    
+    const handleLocalAppointmentFormChange = (e) => {
+      const { name, value } = e.target;
+      
+      // Clear validation error when user changes the field
+      if (localValidationErrors[name]) {
+        setLocalValidationErrors(prev => ({...prev, [name]: ''}));
+      }
+      
+      handleAppointmentFormChange(e);
+    };
+    
+    const handleLocalSubmit = (e) => {
+      e.preventDefault();
+      
+      // Validate form before submission
+      if (!validateAppointmentForm()) {
+        setActionError('Please fill in all required fields');
+        return;
+      }
+      
+      // Log the data being submitted
+      console.log('Submitting appointment data:', appointmentForm);
+      
+      // Proceed with submission
+      handleScheduleAppointment(e);
+    };
+    
+    return (
+      <Modal show={scheduleModal} onHide={() => setScheduleModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Schedule Service Appointment</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {actionError && <Alert variant="danger">{actionError}</Alert>}
+          {actionSuccess && <Alert variant="success">{actionSuccess}</Alert>}
 
-        <Form onSubmit={handleScheduleAppointment}>
-          <Form.Group className="mb-3">
-            <Form.Label>Select Property</Form.Label>
-            <Form.Select 
-              name="propertyId" 
-              value={appointmentForm.propertyId} 
-              onChange={handleAppointmentFormChange}
-              required
-            >
-              <option value="">Select a property</option>
-              {properties.map(property => (
-                <option key={property.id} value={property.id}>
-                  {property.name} - {property.address}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
+          <Form onSubmit={handleLocalSubmit} noValidate>
+            <Form.Group className="mb-3">
+              <Form.Label>Select Property <span className="text-danger">*</span></Form.Label>
+              <Form.Select 
+                name="propertyId" 
+                value={appointmentForm.propertyId} 
+                onChange={handleLocalAppointmentFormChange}
+                required
+                isInvalid={!!localValidationErrors.propertyId}
+              >
+                <option value="">Select a property</option>
+                {properties.map(property => (
+                  <option key={property.id} value={property.id}>
+                    {property.name || `Property at ${property.address}`} - {property.address}
+                  </option>
+                ))}
+              </Form.Select>
+              <Form.Control.Feedback type="invalid">
+                {localValidationErrors.propertyId}
+              </Form.Control.Feedback>
+            </Form.Group>
 
-          <Form.Group className="mb-3">
-            <Form.Label>Service Date</Form.Label>
-            <Form.Control 
-              type="date" 
-              name="date" 
-              value={appointmentForm.date} 
-              onChange={handleAppointmentFormChange}
-              required
-              min={new Date().toISOString().split('T')[0]}
-            />
-          </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Service Date <span className="text-danger">*</span></Form.Label>
+              <Form.Control 
+                type="date" 
+                name="date" 
+                value={appointmentForm.date} 
+                onChange={handleLocalAppointmentFormChange}
+                required
+                min={new Date().toISOString().split('T')[0]}
+                isInvalid={!!localValidationErrors.date}
+              />
+              <Form.Control.Feedback type="invalid">
+                {localValidationErrors.date}
+              </Form.Control.Feedback>
+            </Form.Group>
 
-          <Form.Group className="mb-3">
-            <Form.Label>Time Slot</Form.Label>
-            <Form.Select 
-              name="timeSlot" 
-              value={appointmentForm.timeSlot} 
-              onChange={handleAppointmentFormChange}
-              required
-            >
-              <option value="">Select a time slot</option>
-              <option value="9:00 AM - 11:00 AM">9:00 AM - 11:00 AM</option>
-              <option value="11:00 AM - 1:00 PM">11:00 AM - 1:00 PM</option>
-              <option value="1:00 PM - 3:00 PM">1:00 PM - 3:00 PM</option>
-              <option value="3:00 PM - 5:00 PM">3:00 PM - 5:00 PM</option>
-            </Form.Select>
-          </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Time Slot <span className="text-danger">*</span></Form.Label>
+              <Form.Select 
+                name="timeSlot" 
+                value={appointmentForm.timeSlot} 
+                onChange={handleLocalAppointmentFormChange}
+                required
+                isInvalid={!!localValidationErrors.timeSlot}
+              >
+                <option value="">Select a time slot</option>
+                <option value="9:00 AM - 11:00 AM">9:00 AM - 11:00 AM</option>
+                <option value="11:00 AM - 1:00 PM">11:00 AM - 1:00 PM</option>
+                <option value="1:00 PM - 3:00 PM">1:00 PM - 3:00 PM</option>
+                <option value="3:00 PM - 5:00 PM">3:00 PM - 5:00 PM</option>
+              </Form.Select>
+              <Form.Control.Feedback type="invalid">
+                {localValidationErrors.timeSlot}
+              </Form.Control.Feedback>
+            </Form.Group>
 
-          <Form.Group className="mb-3">
-            <Form.Label>Service Type</Form.Label>
-            <Form.Select 
-              name="serviceType" 
-              value={appointmentForm.serviceType} 
-              onChange={handleAppointmentFormChange}
-              required
-            >
-              <option value="maintenance">Regular Maintenance</option>
-              <option value="repair">Repair Service</option>
-              <option value="installation">Installation</option>
-            </Form.Select>
-          </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Service Type <span className="text-danger">*</span></Form.Label>
+              <Form.Select 
+                name="serviceType" 
+                value={appointmentForm.serviceType} 
+                onChange={handleLocalAppointmentFormChange}
+                required
+                isInvalid={!!localValidationErrors.serviceType}
+              >
+                <option value="maintenance">Regular Maintenance</option>
+                <option value="repair">Repair Service</option>
+                <option value="installation">Installation</option>
+              </Form.Select>
+              <Form.Control.Feedback type="invalid">
+                {localValidationErrors.serviceType}
+              </Form.Control.Feedback>
+            </Form.Group>
 
-          <div className="d-grid gap-2">
-            <Button type="submit" variant="primary" disabled={actionLoading}>
-              {actionLoading ? <Spinner size="sm" animation="border" /> : 'Schedule Appointment'}
-            </Button>
-          </div>
-        </Form>
-      </Modal.Body>
-    </Modal>
-  );
+            <div className="mt-3 mb-2">
+              <small className="text-muted">Fields marked with <span className="text-danger">*</span> are required</small>
+            </div>
+
+            <div className="d-grid gap-2">
+              <Button type="submit" variant="primary" disabled={actionLoading}>
+                {actionLoading ? <Spinner size="sm" animation="border" /> : 'Schedule Appointment'}
+              </Button>
+            </div>
+          </Form>
+        </Modal.Body>
+      </Modal>
+    );
+  };
 
   // Update Profile Modal
   const UpdateProfileModal = () => (
@@ -482,6 +803,140 @@ const DashboardPage = () => {
             </Button>
           </div>
         </Form>
+      </Modal.Body>
+    </Modal>
+  );
+
+  // Reschedule Appointment Modal
+  const RescheduleAppointmentModal = () => (
+    <Modal show={rescheduleModal} onHide={() => setRescheduleModal(false)} centered>
+      <Modal.Header closeButton>
+        <Modal.Title>Reschedule Appointment</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {actionSuccess && <Alert variant="success">{actionSuccess}</Alert>}
+        {actionError && <Alert variant="danger">{actionError}</Alert>}
+        
+        <Form onSubmit={handleReschedule}>
+          <Form.Group className="mb-3">
+            <Form.Label>Date</Form.Label>
+            <Form.Control
+              type="date"
+              name="date"
+              value={appointmentForm.date}
+              onChange={handleAppointmentFormChange}
+              required
+              min={new Date().toISOString().split('T')[0]} // Ensure date is in the future
+            />
+          </Form.Group>
+          
+          <Form.Group className="mb-3">
+            <Form.Label>Time Slot</Form.Label>
+            <Form.Select
+              name="timeSlot"
+              value={appointmentForm.timeSlot}
+              onChange={handleAppointmentFormChange}
+              required
+            >
+              <option value="">Select a time slot</option>
+              <option value="9:00 AM - 11:00 AM">9:00 AM - 11:00 AM</option>
+              <option value="11:00 AM - 1:00 PM">11:00 AM - 1:00 PM</option>
+              <option value="2:00 PM - 4:00 PM">2:00 PM - 4:00 PM</option>
+              <option value="4:00 PM - 6:00 PM">4:00 PM - 6:00 PM</option>
+            </Form.Select>
+          </Form.Group>
+          
+          <div className="d-grid">
+            <Button type="submit" variant="primary" disabled={actionLoading}>
+              {actionLoading ? (
+                <>
+                  <Spinner as="span" animation="border" size="sm" className="me-2" />
+                  Rescheduling...
+                </>
+              ) : (
+                'Reschedule Appointment'
+              )}
+            </Button>
+          </div>
+        </Form>
+      </Modal.Body>
+    </Modal>
+  );
+
+  // Cancel Confirmation Modal
+  const CancelConfirmationModal = () => (
+    <Modal show={cancelConfirmModal} onHide={() => setCancelConfirmModal(false)} centered>
+      <Modal.Header closeButton>
+        <Modal.Title>Cancel Appointment</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {actionSuccess && <Alert variant="success">{actionSuccess}</Alert>}
+        {actionError && <Alert variant="danger">{actionError}</Alert>}
+        
+        <p>Are you sure you want to cancel this appointment? This action cannot be undone.</p>
+        
+        <div className="d-flex justify-content-end gap-2">
+          <Button 
+            variant="secondary" 
+            onClick={() => setCancelConfirmModal(false)}
+            disabled={actionLoading}
+          >
+            No, Keep It
+          </Button>
+          <Button 
+            variant="danger" 
+            onClick={handleCancel}
+            disabled={actionLoading}
+          >
+            {actionLoading ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" className="me-2" />
+                Cancelling...
+              </>
+            ) : (
+              'Yes, Cancel'
+            )}
+          </Button>
+        </div>
+      </Modal.Body>
+    </Modal>
+  );
+
+  // Add this new CancelSubscriptionModal component
+  const CancelSubscriptionModal = () => (
+    <Modal show={cancelSubscriptionModal} onHide={() => setCancelSubscriptionModal(false)} centered>
+      <Modal.Header closeButton>
+        <Modal.Title>Cancel Subscription</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {actionSuccess && <Alert variant="success">{actionSuccess}</Alert>}
+        {actionError && <Alert variant="danger">{actionError}</Alert>}
+        
+        <p>Are you sure you want to cancel your subscription? This action cannot be undone and you'll lose access to all premium features immediately.</p>
+        
+        <div className="d-flex justify-content-end gap-2">
+          <Button 
+            variant="secondary" 
+            onClick={() => setCancelSubscriptionModal(false)}
+            disabled={actionLoading}
+          >
+            No, Keep It
+          </Button>
+          <Button 
+            variant="danger" 
+            onClick={handleCancelSubscription}
+            disabled={actionLoading}
+          >
+            {actionLoading ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" className="me-2" />
+                Cancelling...
+              </>
+            ) : (
+              'Yes, Cancel Subscription'
+            )}
+          </Button>
+        </div>
       </Modal.Body>
     </Modal>
   );
@@ -595,7 +1050,7 @@ const DashboardPage = () => {
                     <p className="mb-2">
                       <span className="text-muted">Total AC Units:</span>{' '}
                       <span className="fw-semibold">
-                        {properties.reduce((total, property) => total + property.acUnits, 0)}
+                        {properties.reduce((total, property) => total + (property?.acUnits || 0), 0)}
                       </span>
                     </p>
                     <div className="mt-3">
@@ -615,15 +1070,18 @@ const DashboardPage = () => {
                 <Card className="h-100 shadow-sm">
                   <Card.Body>
                     <h5 className="fw-bold mb-3">Upcoming Service</h5>
-                    {appointments.length > 0 ? (
+                    {console.log('All appointments:', appointments)}
+                    {console.log('Scheduled appointments:', appointments.filter(a => a.status === 'scheduled'))}
+                    {console.log('Properties:', properties)}
+                    {appointments.filter(a => a.status === 'scheduled').length > 0 ? (
                       <>
                         <p className="mb-2">
                           <span className="text-muted">Next Appointment:</span>{' '}
-                          <span className="fw-semibold">{formatDate(appointments[0].date)}</span>
+                          <span className="fw-semibold">{formatDate(appointments[0].appointmentDate)}</span>
                         </p>
                         <p className="mb-2">
                           <span className="text-muted">Time:</span>{' '}
-                          <span className="fw-semibold">{appointments[0].timeSlot}</span>
+                          <span className="fw-semibold">{appointments[0].timeSlot || '9:00 AM - 11:00 AM'}</span>
                         </p>
                         <div className="mt-3">
                           <Button 
@@ -655,14 +1113,14 @@ const DashboardPage = () => {
             </Row>
 
             {/* Reminder alert if there's an upcoming appointment */}
-            {appointments.length > 0 && (
+            {appointments && appointments.length > 0 && (
               <Row className="mt-2">
                 <Col>
                   <Alert variant="info">
                     <div className="d-flex align-items-center">
                       <FaBell className="me-3 text-primary" size={20} />
                       <div>
-                        <strong>Reminder:</strong> Your next service is scheduled for {formatDate(appointments[0].date)} at {appointments[0].timeSlot}. Make sure someone is available at the property.
+                        <strong>Reminder:</strong> Your next service is scheduled for {formatDate(appointments[0].appointmentDate)} at {appointments[0].timeSlot || '9:00 AM - 11:00 AM'}. Make sure someone is available at the property.
                       </div>
                     </div>
                   </Alert>
@@ -691,14 +1149,18 @@ const DashboardPage = () => {
                         <tbody>
                           {appointments
                             .filter(a => a.status === 'completed')
+                            .filter(a => properties.some(p => p.id === a.PropertyId))
                             .slice(0, 3)
                             .map((service) => (
                               <tr key={service.id}>
-                                <td>{formatDate(service.date)}</td>
+                                <td>{formatDate(service.appointmentDate)}</td>
                                 <td>{service.serviceType}</td>
-                                <td>{
-                                  properties.find(p => p.id === service.propertyId)?.name || 'Unknown'
-                                }</td>
+                                <td>
+                                  {(() => {
+                                    const property = properties.find(p => p.id === service.PropertyId);
+                                    return property ? (property.name || `Property at ${property.address}`) : 'Unknown Property';
+                                  })()}
+                                </td>
                                 <td>{service.technicianNotes || 'No notes'}</td>
                               </tr>
                             ))}
@@ -735,6 +1197,9 @@ const DashboardPage = () => {
                 </div>
               </Card.Header>
               <Card.Body>
+                {console.log('All appointments:', appointments)}
+                {console.log('Scheduled appointments:', appointments.filter(a => a.status === 'scheduled'))}
+                {console.log('Properties:', properties)}
                 {appointments.filter(a => a.status === 'scheduled').length > 0 ? (
                   <Table responsive hover>
                     <thead>
@@ -750,24 +1215,48 @@ const DashboardPage = () => {
                     <tbody>
                       {appointments
                         .filter(a => a.status === 'scheduled')
+                        .filter(a => properties.some(p => p.id === a.PropertyId))
                         .map((appointment) => (
                           <tr key={appointment.id}>
-                            <td>{formatDate(appointment.date)}</td>
-                            <td>{appointment.timeSlot}</td>
+                            <td>{formatDate(appointment.appointmentDate)}</td>
+                            <td>{appointment.timeSlot || '9:00 AM - 11:00 AM'}</td>
                             <td>{appointment.serviceType}</td>
-                            <td>{
-                              properties.find(p => p.id === appointment.propertyId)?.name || 'Unknown'
-                            }</td>
+                            <td>
+                              {(() => {
+                                const property = properties.find(p => p.id === appointment.PropertyId);
+                                return property ? (property.name || `Property at ${property.address}`) : 'Unknown Property';
+                              })()}
+                            </td>
                             <td>
                               <Badge bg={appointment.status === 'scheduled' ? 'success' : 'warning'}>
                                 {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
                               </Badge>
                             </td>
                             <td>
-                              <Button variant="outline-primary" size="sm" className="me-2">
+                              <Button 
+                                variant="outline-primary" 
+                                size="sm" 
+                                className="me-2"
+                                onClick={() => {
+                                  setSelectedAppointment(appointment);
+                                  setAppointmentForm({
+                                    ...appointmentForm,
+                                    date: new Date(appointment.appointmentDate).toISOString().split('T')[0],
+                                    timeSlot: appointment.timeSlot || '9:00 AM - 11:00 AM'
+                                  });
+                                  setRescheduleModal(true);
+                                }}
+                              >
                                 Reschedule
                               </Button>
-                              <Button variant="outline-danger" size="sm">
+                              <Button 
+                                variant="outline-danger" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedAppointment(appointment);
+                                  setCancelConfirmModal(true);
+                                }}
+                              >
                                 Cancel
                               </Button>
                             </td>
@@ -803,7 +1292,7 @@ const DashboardPage = () => {
                       <Col md={6} className="mb-4" key={property.id}>
                         <Card className="h-100 shadow-sm">
                           <Card.Body>
-                            <h5 className="fw-bold">{property.name}</h5>
+                            <h5 className="fw-bold">{property.name || `Property at ${property.address}`}</h5>
                             <p className="text-muted mb-3">{property.address}</p>
                             <div className="d-flex justify-content-between mb-2">
                               <span>City:</span>
@@ -811,7 +1300,7 @@ const DashboardPage = () => {
                             </div>
                             <div className="d-flex justify-content-between mb-2">
                               <span>AC Units:</span>
-                              <span className="fw-semibold">{property.acUnits}</span>
+                              <span className="fw-semibold">{property.acUnits || 0}</span>
                             </div>
                             <div className="d-flex justify-content-between mb-3">
                               <span>Last Serviced:</span>
@@ -850,13 +1339,25 @@ const DashboardPage = () => {
               <Card.Header className="bg-white">
                 <div className="d-flex justify-content-between align-items-center">
                   <h5 className="mb-0 fw-bold">Subscription Details</h5>
-                  <Button 
-                    variant="primary" 
-                    size="sm"
-                    onClick={() => window.location.href = '/pricing'}
-                  >
-                    <FaCreditCard className="me-2" /> Change Plan
-                  </Button>
+                  <div>
+                    <Button 
+                      variant="primary" 
+                      size="sm"
+                      className="me-2"
+                      onClick={() => window.location.href = '/pricing'}
+                    >
+                      <FaCreditCard className="me-2" /> Change Plan
+                    </Button>
+                    {subscription && subscription.status === 'active' && (
+                      <Button 
+                        variant="outline-danger" 
+                        size="sm"
+                        onClick={() => setCancelSubscriptionModal(true)}
+                      >
+                        Cancel Subscription
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </Card.Header>
               <Card.Body>
@@ -968,13 +1469,17 @@ const DashboardPage = () => {
                     <tbody>
                       {appointments
                         .filter(a => a.status === 'completed')
+                        .filter(a => properties.some(p => p.id === a.PropertyId))
                         .map((service) => (
                           <tr key={service.id}>
-                            <td>{formatDate(service.date)}</td>
+                            <td>{formatDate(service.appointmentDate)}</td>
                             <td>{service.serviceType}</td>
-                            <td>{
-                              properties.find(p => p.id === service.propertyId)?.name || 'Unknown'
-                            }</td>
+                            <td>
+                              {(() => {
+                                const property = properties.find(p => p.id === service.PropertyId);
+                                return property ? (property.name || `Property at ${property.address}`) : 'Unknown Property';
+                              })()}
+                            </td>
                             <td>{service.technician || 'Not assigned'}</td>
                             <td>{service.technicianNotes || 'No notes'}</td>
                           </tr>
@@ -1105,6 +1610,9 @@ const DashboardPage = () => {
       <AddPropertyModal />
       <ScheduleAppointmentModal />
       <UpdateProfileModal />
+      <RescheduleAppointmentModal />
+      <CancelConfirmationModal />
+      <CancelSubscriptionModal />
     </>
   );
 };

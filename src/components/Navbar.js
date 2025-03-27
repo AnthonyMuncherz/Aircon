@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Navbar as BootstrapNavbar, Container, Nav, Button, NavDropdown } from 'react-bootstrap';
-import { FaAirFreshener, FaUser, FaSignOutAlt, FaTachometerAlt } from 'react-icons/fa';
+import { FaAirFreshener, FaUser, FaSignOutAlt, FaTachometerAlt, FaCalendarAlt } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import { useDashboard } from '../context/DashboardContext';
 
 const Navbar = () => {
   const location = useLocation();
   const [expanded, setExpanded] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
+  const { hasActiveSubscription } = useDashboard();
 
   const isActive = (path) => {
     return location.pathname === path ? 'active' : '';
@@ -44,6 +46,16 @@ const Navbar = () => {
           <Nav onClick={() => setExpanded(false)}>
             {isAuthenticated ? (
               <>
+                <Button 
+                  as={Link} 
+                  to="/schedule-service" 
+                  variant="outline-primary" 
+                  size="sm" 
+                  className="me-3 d-flex align-items-center"
+                >
+                  <FaCalendarAlt className="me-1" size={12} />
+                  Schedule Service
+                </Button>
                 <NavDropdown 
                   title={
                     <span>

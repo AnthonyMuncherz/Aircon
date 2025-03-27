@@ -48,7 +48,7 @@ const AboutPage = () => {
             </Col>
             <Col lg={6}>
               <img 
-                src="https://via.placeholder.com/600x400" 
+                src="/images/technician-service-removing-air-filter-air-conditioner-cleaning.jpg" 
                 alt="CoolCare Team" 
                 className="img-fluid rounded shadow"
               />

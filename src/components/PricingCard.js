@@ -4,19 +4,32 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDashboard } from '../context/DashboardContext';
 
-const PricingCard = ({ title, price, features, isFeatured, planId }) => {
+const PricingCard = ({ 
+  id, 
+  title, 
+  price, 
+  features, 
+  isFeatured, 
+  buttonText = "Subscribe Now", 
+  onSelect 
+}) => {
   const { isAuthenticated } = useAuth();
   const { subscribe } = useDashboard();
   const navigate = useNavigate();
 
   const handleSubscribe = async () => {
+    if (onSelect) {
+      onSelect({ id, title, price, features, isFeatured });
+      return;
+    }
+    
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
 
     try {
-      const planIdToUse = planId || (title === 'Basic' ? 1 : title === 'Premium' ? 2 : 3);
+      const planIdToUse = id || (title === 'Basic' ? 1 : title === 'Premium' ? 2 : 3);
       const result = await subscribe(planIdToUse);
 
       if (result.success) {
@@ -59,7 +72,7 @@ const PricingCard = ({ title, price, features, isFeatured, planId }) => {
           size="lg" 
           className="w-75"
         >
-          Subscribe Now
+          {buttonText}
         </Button>
       </Card.Footer>
     </Card>

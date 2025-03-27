@@ -72,6 +72,20 @@ export const DashboardProvider = ({ children }) => {
     if (!token) return { success: false, message: 'Not authenticated' };
 
     try {
+      // Validate required fields before sending to API
+      const requiredFields = ['address', 'city', 'state', 'zipCode'];
+      const missingFields = requiredFields.filter(field => !propertyData[field]);
+      
+      if (missingFields.length > 0) {
+        return { 
+          success: false, 
+          message: `Missing required fields: ${missingFields.join(', ')}` 
+        };
+      }
+      
+      // Log the property data before sending to API
+      console.log('Sending property data to API:', propertyData);
+
       const response = await fetch(`/api/properties`, {
         method: 'POST',
         headers: {
@@ -81,13 +95,26 @@ export const DashboardProvider = ({ children }) => {
         body: JSON.stringify(propertyData)
       });
 
+      console.log('API response status:', response.status);
       const data = await response.json();
+      console.log('API response data:', data);
 
       if (response.ok) {
-        setProperties(prevProperties => [...prevProperties, data.property]);
-        return { success: true, property: data.property };
+        // Handle different response formats consistently
+        // Backend returns either { property } or the property directly
+        const newProperty = data.property || data;
+        
+        // Verify we have a valid property object with an id
+        if (newProperty && newProperty.id) {
+          setProperties(prevProperties => [...prevProperties, newProperty]);
+          return { success: true, property: newProperty };
+        } else {
+          console.error('Invalid property data received:', newProperty);
+          return { success: false, message: 'Received invalid property data from server' };
+        }
       } else {
-        return { success: false, message: data.message };
+        console.error('Property creation failed:', data.message || 'Unknown error');
+        return { success: false, message: data.message || 'Failed to create property' };
       }
     } catch (error) {
       console.error('Add property error:', error);
@@ -126,26 +153,50 @@ export const DashboardProvider = ({ children }) => {
     if (!token) return { success: false, message: 'Not authenticated' };
 
     try {
+      // Validate required fields
+      if (!appointmentData.propertyId) {
+        return { success: false, message: 'Please select a property' };
+      }
+      
+      if (!appointmentData.date) {
+        return { success: false, message: 'Please select a date' };
+      }
+      
+      if (!appointmentData.timeSlot) {
+        return { success: false, message: 'Please select a time slot' };
+      }
+      
+      // Map frontend field names to backend field names
+      const mappedData = {
+        propertyId: appointmentData.propertyId,
+        appointmentDate: appointmentData.date,
+        serviceType: appointmentData.serviceType,
+        timeSlot: appointmentData.timeSlot
+      };
+      
+      console.log('Sending appointment data to API:', mappedData);
+
       const response = await fetch(`/api/appointments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(appointmentData)
+        body: JSON.stringify(mappedData)
       });
 
       const data = await response.json();
+      console.log('Appointment response:', data);
 
       if (response.ok) {
         setAppointments(prevAppointments => [...prevAppointments, data.appointment]);
         return { success: true, appointment: data.appointment };
       } else {
-        return { success: false, message: data.message };
+        return { success: false, message: data.message || 'Failed to schedule appointment' };
       }
     } catch (error) {
       console.error('Schedule appointment error:', error);
-      return { success: false, message: 'Failed to connect to the server' };
+      return { success: false, message: error.message || 'Failed to connect to the server' };
     }
   };
 
@@ -235,6 +286,126 @@ export const DashboardProvider = ({ children }) => {
     }
   };
 
+  // Reschedule an appointment
+  const rescheduleAppointment = async (appointmentId, appointmentData) => {
+    if (!token) return { success: false, message: 'Not authenticated' };
+
+    try {
+      // Validate required fields
+      if (!appointmentData.date) {
+        return { success: false, message: 'Please select a date' };
+      }
+      
+      if (!appointmentData.timeSlot) {
+        return { success: false, message: 'Please select a time slot' };
+      }
+      
+      // Map frontend field names to backend field names
+      const mappedData = {
+        appointmentDate: appointmentData.date,
+        timeSlot: appointmentData.timeSlot
+      };
+      
+      console.log(`Rescheduling appointment ID ${appointmentId} with data:`, mappedData);
+
+      const response = await fetch(`/api/appointments/${appointmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(mappedData)
+      });
+
+      const data = await response.json();
+      console.log('Reschedule response:', data);
+
+      if (response.ok) {
+        // Update the appointments state with the updated appointment
+        setAppointments(prevAppointments => 
+          prevAppointments.map(appointment => 
+            appointment.id === appointmentId ? data.appointment : appointment
+          )
+        );
+        return { success: true, appointment: data.appointment };
+      } else {
+        return { success: false, message: data.message || 'Failed to reschedule appointment' };
+      }
+    } catch (error) {
+      console.error('Reschedule appointment error:', error);
+      return { success: false, message: error.message || 'Failed to connect to the server' };
+    }
+  };
+
+  // Cancel an appointment
+  const cancelAppointment = async (appointmentId) => {
+    if (!token) return { success: false, message: 'Not authenticated' };
+
+    try {
+      console.log(`Cancelling appointment ID ${appointmentId}`);
+
+      const response = await fetch(`/api/appointments/${appointmentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      console.log('Cancel response:', data);
+
+      if (response.ok) {
+        // Update the appointments state with the updated appointment status
+        setAppointments(prevAppointments => 
+          prevAppointments.map(appointment => 
+            appointment.id === appointmentId ? data.appointment : appointment
+          )
+        );
+        return { success: true, appointment: data.appointment };
+      } else {
+        return { success: false, message: data.message || 'Failed to cancel appointment' };
+      }
+    } catch (error) {
+      console.error('Cancel appointment error:', error);
+      return { success: false, message: error.message || 'Failed to connect to the server' };
+    }
+  };
+
+  // Cancel a subscription
+  const cancelSubscription = async (subscriptionId) => {
+    if (!token) return { success: false, message: 'Not authenticated' };
+
+    try {
+      console.log(`Cancelling subscription ID ${subscriptionId}`);
+
+      const response = await fetch(`/api/subscriptions/${subscriptionId}/cancel`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      console.log('Cancel subscription response:', data);
+
+      if (response.ok) {
+        // Update the subscription state
+        setSubscription(data.subscription);
+        return { success: true, subscription: data.subscription };
+      } else {
+        return { success: false, message: data.message || 'Failed to cancel subscription' };
+      }
+    } catch (error) {
+      console.error('Cancel subscription error:', error);
+      return { success: false, message: error.message || 'Failed to connect to the server' };
+    }
+  };
+
+  // Check if user has active subscription
+  const hasActiveSubscription = () => {
+    return subscription && subscription.status === 'active';
+  };
+
   // Context value
   const value = {
     properties,
@@ -246,9 +417,13 @@ export const DashboardProvider = ({ children }) => {
     addProperty,
     fetchAppointments,
     scheduleAppointment,
+    rescheduleAppointment,
+    cancelAppointment,
     fetchSubscription,
     subscribe,
-    fetchPlans
+    fetchPlans,
+    cancelSubscription,
+    hasActiveSubscription
   };
 
   return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;

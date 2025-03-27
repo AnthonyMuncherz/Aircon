@@ -28,11 +28,13 @@ const sequelize = new Sequelize(
 const User = sequelize.define('User', {
   firstName: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
+    field: 'first_name'
   },
   lastName: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
+    field: 'last_name'
   },
   email: {
     type: DataTypes.STRING,
@@ -47,6 +49,9 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true
   }
+}, {
+  tableName: 'users',
+  underscored: true
 });
 
 const Plan = sequelize.define('Plan', {
@@ -72,6 +77,11 @@ const Plan = sequelize.define('Plan', {
 });
 
 const Property = sequelize.define('Property', {
+  name: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: 'My Property'
+  },
   address: {
     type: DataTypes.STRING,
     allowNull: false
@@ -86,47 +96,63 @@ const Property = sequelize.define('Property', {
   },
   zipCode: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
+    field: 'zip_code'
   },
   propertyType: {
     type: DataTypes.ENUM('residential', 'commercial'),
-    defaultValue: 'residential'
+    defaultValue: 'residential',
+    field: 'property_type'
+  },
+  acUnits: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1,
+    field: 'ac_units'
   }
+}, {
+  tableName: 'properties',
+  underscored: true
 });
 
 const Subscription = sequelize.define('Subscription', {
   startDate: {
     type: DataTypes.DATE,
     allowNull: false,
-    defaultValue: DataTypes.NOW
+    defaultValue: DataTypes.NOW,
+    field: 'start_date'
   },
   endDate: {
     type: DataTypes.DATE,
-    allowNull: false
+    allowNull: false,
+    field: 'end_date'
   },
   status: {
     type: DataTypes.ENUM('active', 'expired', 'cancelled'),
     defaultValue: 'active'
   }
+}, {
+  tableName: 'user_subscriptions',
+  underscored: true
 });
 
 const ServiceAppointment = sequelize.define('ServiceAppointment', {
   appointmentDate: {
     type: DataTypes.DATE,
-    allowNull: false
+    allowNull: false,
+    field: 'appointment_date'
   },
   serviceType: {
     type: DataTypes.ENUM('maintenance', 'repair', 'installation'),
-    defaultValue: 'maintenance'
+    defaultValue: 'maintenance',
+    field: 'service_type'
   },
   status: {
     type: DataTypes.ENUM('scheduled', 'completed', 'cancelled'),
     defaultValue: 'scheduled'
-  },
-  notes: {
-    type: DataTypes.TEXT,
-    allowNull: true
   }
+}, {
+  tableName: 'service_appointments',
+  underscored: true
 });
 
 // Associations
@@ -289,19 +315,47 @@ app.get('/api/properties', authenticateToken, async (req, res) => {
 
 app.post('/api/properties', authenticateToken, async (req, res) => {
   try {
-    const { address, city, state, zipCode, propertyType } = req.body;
-    const property = await Property.create({
+    const { name, address, city, state, zipCode, propertyType, acUnits } = req.body;
+    
+    // Log the received data
+    console.log('Received property data:', {
+      name,
       address,
       city,
       state,
       zipCode,
       propertyType,
+      acUnits,
+      userId: req.user.id
+    });
+    
+    // Create with proper null/undefined checks
+    const property = await Property.create({
+      name: name || 'My Property',
+      address: address || '',
+      city: city || '',
+      state: state || '',
+      zipCode: zipCode || '',
+      propertyType: propertyType || 'residential',
+      acUnits: acUnits || 1,
       UserId: req.user.id
     });
-    res.status(201).json(property);
+    
+    console.log('Created property:', property.toJSON());
+    
+    // Return in a consistent format
+    res.status(201).json({
+      success: true,
+      message: 'Property created successfully',
+      property: property
+    });
   } catch (error) {
     console.error('Error creating property:', error);
-    res.status(500).json({ message: 'Error creating property', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error creating property', 
+      error: error.message 
+    });
   }
 });
 
@@ -351,6 +405,47 @@ app.post('/api/subscriptions', authenticateToken, async (req, res) => {
   }
 });
 
+// Cancel subscription
+app.put('/api/subscriptions/:id/cancel', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find the subscription
+    const subscription = await Subscription.findOne({
+      where: { 
+        id: id,
+        UserId: req.user.id,
+        status: 'active'
+      },
+      include: [Plan]
+    });
+    
+    if (!subscription) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Active subscription not found or does not belong to user' 
+      });
+    }
+    
+    // Update the status to cancelled
+    subscription.status = 'cancelled';
+    await subscription.save();
+    
+    res.json({
+      success: true,
+      message: 'Subscription cancelled successfully',
+      subscription
+    });
+  } catch (error) {
+    console.error('Error cancelling subscription:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error cancelling subscription', 
+      error: error.message 
+    });
+  }
+});
+
 // Service Appointments
 app.get('/api/appointments', authenticateToken, async (req, res) => {
   try {
@@ -367,7 +462,29 @@ app.get('/api/appointments', authenticateToken, async (req, res) => {
 
 app.post('/api/appointments', authenticateToken, async (req, res) => {
   try {
-    const { propertyId, appointmentDate, serviceType, notes } = req.body;
+    const { propertyId, appointmentDate, serviceType, timeSlot } = req.body;
+    
+    // Input validation
+    if (!propertyId) {
+      return res.status(400).json({ message: 'Property ID is required' });
+    }
+    
+    if (!appointmentDate) {
+      return res.status(400).json({ message: 'Appointment date is required' });
+    }
+    
+    if (!serviceType) {
+      return res.status(400).json({ message: 'Service type is required' });
+    }
+    
+    // Log the received data
+    console.log('Creating appointment with data:', {
+      propertyId,
+      appointmentDate,
+      serviceType,
+      timeSlot,
+      userId: req.user.id
+    });
     
     // Verify property belongs to user
     const property = await Property.findOne({
@@ -381,22 +498,117 @@ app.post('/api/appointments', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Property not found or does not belong to user' });
     }
     
+    // Create the appointment with proper data mapping
     const appointment = await ServiceAppointment.create({
       appointmentDate,
       serviceType,
-      notes,
+      timeSlot: timeSlot || '9:00 AM - 11:00 AM', // Default time slot if not provided
       status: 'scheduled',
       UserId: req.user.id,
       PropertyId: propertyId
     });
     
+    console.log('Created appointment:', appointment.toJSON());
+    
     res.status(201).json({
+      success: true,
       message: 'Appointment scheduled successfully',
       appointment
     });
   } catch (error) {
     console.error('Error scheduling appointment:', error);
-    res.status(500).json({ message: 'Error scheduling appointment', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error scheduling appointment', 
+      error: error.message 
+    });
+  }
+});
+
+// Update appointment (for rescheduling)
+app.put('/api/appointments/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { appointmentDate, timeSlot } = req.body;
+    
+    // Input validation
+    if (!appointmentDate) {
+      return res.status(400).json({ message: 'Appointment date is required' });
+    }
+    
+    // Find the appointment
+    const appointment = await ServiceAppointment.findOne({
+      where: { 
+        id: id,
+        UserId: req.user.id
+      }
+    });
+    
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found or does not belong to user' });
+    }
+    
+    if (appointment.status !== 'scheduled') {
+      return res.status(400).json({ message: 'Only scheduled appointments can be rescheduled' });
+    }
+    
+    // Update the appointment
+    appointment.appointmentDate = appointmentDate;
+    if (timeSlot) appointment.timeSlot = timeSlot;
+    await appointment.save();
+    
+    res.json({
+      success: true,
+      message: 'Appointment rescheduled successfully',
+      appointment
+    });
+  } catch (error) {
+    console.error('Error rescheduling appointment:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error rescheduling appointment', 
+      error: error.message 
+    });
+  }
+});
+
+// Cancel appointment
+app.delete('/api/appointments/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find the appointment
+    const appointment = await ServiceAppointment.findOne({
+      where: { 
+        id: id,
+        UserId: req.user.id
+      }
+    });
+    
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found or does not belong to user' });
+    }
+    
+    if (appointment.status !== 'scheduled') {
+      return res.status(400).json({ message: 'Only scheduled appointments can be cancelled' });
+    }
+    
+    // Update the status to cancelled
+    appointment.status = 'cancelled';
+    await appointment.save();
+    
+    res.json({
+      success: true,
+      message: 'Appointment cancelled successfully',
+      appointment
+    });
+  } catch (error) {
+    console.error('Error cancelling appointment:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error cancelling appointment', 
+      error: error.message 
+    });
   }
 });
 
@@ -407,18 +619,10 @@ const initializeApp = async () => {
     await sequelize.authenticate();
     console.log('Database connection established.');
     
-    console.log('Dropping existing tables...');
-    await sequelize.query('SET FOREIGN_KEY_CHECKS = 0');
-    await sequelize.query('DROP TABLE IF EXISTS ServiceAppointments');
-    await sequelize.query('DROP TABLE IF EXISTS Subscriptions');
-    await sequelize.query('DROP TABLE IF EXISTS Properties');
-    await sequelize.query('DROP TABLE IF EXISTS Users');
-    await sequelize.query('SET FOREIGN_KEY_CHECKS = 1');
-    console.log('Existing tables dropped.');
-    
-    console.log('Creating tables...');
-    await sequelize.sync({ force: false });
-    console.log('Database synchronized.');
+    // Don't drop tables, just sync the model definitions with existing tables
+    console.log('Syncing database models...');
+    await sequelize.sync({ alter: true });
+    console.log('Database models synchronized.');
     
     // Start server
     app.listen(PORT, () => {

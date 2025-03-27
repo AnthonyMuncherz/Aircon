@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Container } from 'react-bootstrap';
 import './App.css';
 
 // Components
@@ -20,20 +21,43 @@ import TestPage from './pages/TestPage';
 
 // Auth Context
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { DashboardProvider } from './context/DashboardContext';
+import { DashboardProvider, useDashboard } from './context/DashboardContext';
 
-// Protected route component
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+// Auth route guard
+const PrivateRoute = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  
+  return isAuthenticated ? children : <Navigate to="/login" />;
+};
 
+// Subscription route guard
+const SubscriptionProtectedRoute = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  const { hasActiveSubscription, loading } = useDashboard();
+  
+  // If loading, show nothing (or you could add a loading spinner)
   if (loading) {
-    return <div className="container py-5 text-center">Loading...</div>;
+    return (
+      <Container className="py-5 text-center">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+        <p className="mt-3">Checking subscription status...</p>
+      </Container>
+    );
   }
-
+  
+  // If not authenticated, redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
-
+  
+  // If authenticated but no active subscription, redirect to pricing page
+  if (!hasActiveSubscription()) {
+    return <Navigate to="/pricing" state={{ subscriptionRequired: true }} />;
+  }
+  
+  // All checks passed, render the children
   return children;
 };
 
@@ -53,11 +77,7 @@ const AppContent = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/services" element={<ServicesPage />} />
-          <Route path="/pricing" element={
-            <DashboardProvider>
-              <PricingPage />
-            </DashboardProvider>
-          } />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/contact" element={<ContactPage />} />
           
           {/* Auth routes with redirects for authenticated users */}
@@ -72,13 +92,20 @@ const AppContent = () => {
           
           {/* Protected routes */}
           <Route 
-            path="/dashboard/*" 
+            path="/dashboard" 
             element={
-              <ProtectedRoute>
-                <DashboardProvider>
-                  <DashboardPage />
-                </DashboardProvider>
-              </ProtectedRoute>
+              <PrivateRoute>
+                <DashboardPage />
+              </PrivateRoute>
+            } 
+          />
+          
+          <Route 
+            path="/schedule-service" 
+            element={
+              <SubscriptionProtectedRoute>
+                <DashboardPage defaultTab="appointments" />
+              </SubscriptionProtectedRoute>
             } 
           />
           
@@ -98,7 +125,40 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <DashboardProvider>
+          <div className="d-flex flex-column min-vh-100">
+            <Navbar />
+            <main className="flex-grow-1">
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/services" element={<ServicesPage />} />
+                <Route path="/pricing" element={<PricingPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route 
+                  path="/dashboard" 
+                  element={
+                    <PrivateRoute>
+                      <DashboardPage />
+                    </PrivateRoute>
+                  } 
+                />
+                <Route 
+                  path="/schedule-service" 
+                  element={
+                    <SubscriptionProtectedRoute>
+                      <DashboardPage defaultTab="appointments" />
+                    </SubscriptionProtectedRoute>
+                  } 
+                />
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </main>
+            <Footer />
+          </div>
+        </DashboardProvider>
       </AuthProvider>
     </Router>
   );
